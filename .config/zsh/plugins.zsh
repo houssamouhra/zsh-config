@@ -140,7 +140,7 @@ source "$(plugin-path romkatv zsh-defer)"
 zsh-defer source "$(plugin-path mattmc3 ez-compinit)"
 zsh-defer source "$(plugin-path zsh-users zsh-completions)"
 zsh-defer source "$(plugin-path aloxaf fzf-tab)"
-load-zsh-patina
 zsh-defer source "$(plugin-path zsh-users zsh-autosuggestions)"
 zsh-defer source "$(plugin-path zsh-users zsh-history-substring-search)"
 zsh-defer source "$(plugin-path houssamouhra colored-man-pages)"
+load-zsh-patina
