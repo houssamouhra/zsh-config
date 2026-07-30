@@ -28,7 +28,7 @@ A small set of focused plugins keeps the shell efficient and practical.
 - [zsh-completions](https://github.com/zsh-users/zsh-completions) — additional completion definitions.
 - [fzf-tab](https://github.com/Aloxaf/fzf-tab) — replaces standard completion menus with an interactive fzf interface.
 - [zsh-autosuggestions](https://github.com/zsh-users/zsh-autosuggestions) — suggests commands as you type based on your history.
-- [zsh-history-substring-search](https://github.com/zsh-users/zsh-history-substring-search) — searches through history using the current command line as a substring.
+- [zsh-history-substring-search](https://github.com/zsh-users/zsh-history-substring-search) — searches history by substring.
 - [colored-man-pages](https://github.com/houssamouhra/colored-man-pages) — adds colors to man pages for easier reading.
 - [zsh-patina](https://github.com/michel-kraemer/zsh-patina) — blazingly fast Zsh syntax highlighter.
 
