@@ -58,6 +58,14 @@ path_prompt() {
 }
 
 precmd() {
+    local status=$?
+
+    if (( status == 0 )); then
+        CMD_STATUS='%F{magenta}➜%f'
+    else
+        CMD_STATUS='%F{red}➜%f'
+    fi
+
     if gitstatus_query 'MY_PROMPT'; then
         GIT_INFO=$(git_prompt)
     else
@@ -72,4 +80,4 @@ precmd() {
 
 PROMPT='
 %F{blue}${PATH_INFO}%f ${GIT_INFO}
-%F{magenta}➜%f '
+${CMD_STATUS} '
