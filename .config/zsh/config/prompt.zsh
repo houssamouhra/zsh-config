@@ -58,9 +58,9 @@ path_prompt() {
 }
 
 precmd() {
-    local status=$?
+    local cmd_status=$?
 
-    if (( status == 0 )); then
+    if (( cmd_status == 0 )); then
         CMD_STATUS='%F{magenta}➜%f'
     else
         CMD_STATUS='%F{red}➜%f'
