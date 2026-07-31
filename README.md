@@ -14,9 +14,9 @@ No heavy plugin manager required.
 
 ## Prompt
 
-The prompt follows a **Zen-inspired design** with a minimal, clean, and native feel.
+The prompt follows a Zen-inspired design that is minimal, clean, and native.
 
-It focuses on useful information like the current directory, Git status, and command state without the need for a separate prompt framework.
+It focuses on useful information such as the current directory with smart path truncation, Git status, and command state without relying on a separate prompt framework like [Starship](https://github.com/starship/starship) or [Powerlevel10k](https://github.com/romkatv/powerlevel10k)
 
 ## Plugins
 
@@ -38,11 +38,11 @@ Measured with the shell running interactively using [zsh-bench](https://github.c
 
 | Metric            |     Result |
 | ----------------- | ---------: |
-| First prompt lag  | 144.372 ms |
-| First command lag | 148.695 ms |
-| Command lag       |  26.045 ms |
-| Input lag         |   3.743 ms |
-| Exit time         | 209.463 ms |
+| First prompt lag  |109.829 ms |
+| First command lag |112.493 ms |
+| Command lag       |  16.707 ms |
+| Input lag         |   3.332 ms |
+| Exit time         | 105.280 ms |
 
 ## License
 
