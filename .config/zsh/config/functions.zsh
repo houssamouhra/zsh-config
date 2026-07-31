@@ -3,13 +3,64 @@ export C_RED=$'\e[0;31m'
 export C_GREEN=$'\e[0;32m'
 export C_YELLOW=$'\e[0;33m'
 export C_CYAN=$'\e[0;36m'
-export C_MAGENTA=$'\e[0;35m'
 export C_NC=$'\e[0m'
 
+# SSH Agent / Keychain
+_ssh_agent_lazy() {
+	if [[ -n "$SSH_AUTH_SOCK" && -S "$SSH_AUTH_SOCK" ]] &&
+		ssh-add -l >/dev/null 2>&1; then
+        echo "${C_GREEN}SSH agent already active${C_NC}"
+		return 0
+	fi
+
+	[[ -f ~/.keychain/"$HOST"-sh ]] && source ~/.keychain/"$HOST"-sh
+	eval "$(keychain --eval --quiet --nogui --timeout 480 ~/.ssh/id_ed25519)" &&
+    echo "${C_GREEN}SSH agent started${C_NC}"
+}
+
+# zoxide integration
+z() {
+	unset -f z
+	eval "$(zoxide init zsh)"
+	z "$@"
+}
+
+# open yazi either at the given directory
+# or at the one zoxide suggests
+y() {
+	if [[ -n $1 ]]; then
+		if [ -d "$1" ]; then
+			yazi "$1"
+		else
+			yazi "$(zoxide query "$1")"
+		fi
+	else
+		yazi
+	fi
+}
+
+# fnm lazy load
+_fnm_lazy_load() {
+	if [[ -f package.json ]]; then
+		eval "$(fnm env)" 2>/dev/null || return
+		add-zsh-hook -d chpwd _fnm_lazy_load
+	fi
+}
+_fnm_lazy_load
+add-zsh-hook -d chpwd _fnm_lazy_load 2>/dev/null
+add-zsh-hook chpwd _fnm_lazy_load
+
+# fnm manual activation
+fnm-on() {
+	eval "$(fnm env)" 2>/dev/null
+    echo "${C_GREEN}Node activated${C_NC}"
+}
+
+# Extract one or more archive files based on their extension
 extract() {
     if [[ "$1" == "help" || "$1" == "-h" || -z "$1" ]]; then
         echo "${C_CYAN}📦 extract${C_NC}: Universal archive extractor (supports multiple files)."
-        echo "Usage: ${C_YELLOW}extract <file1> [file2] [file3]${C_NC}"
+        echo "Usage: ${C_YELLOW}extract <archive> [archive...]${C_NC}"
         return 0
     fi
 
@@ -37,6 +88,7 @@ extract() {
     echo "${C_GREEN}✅ Extraction complete!${C_NC}"
 }
 
+# Inspect a port and optionally terminate the process using it
 port() {
     if [[ "$1" == "help" || "$1" == "-h" || -z "$1" ]]; then
         echo "${C_CYAN}🔌 port${C_NC}: See what's running on a port and optionally kill it."
@@ -63,6 +115,7 @@ port() {
     fi
 }
 
+# Display local, public, and approximate geolocation information for your IP
 myip() {
     if [[ "$1" == "help" || "$1" == "-h" ]]; then
         echo "${C_CYAN}🌐 myip${C_NC}: Fetches your networking info."
@@ -82,6 +135,7 @@ myip() {
     echo "📍 ${C_YELLOW}Location:${C_NC}  $geo_info, $country_info"
 }
 
+# Measure HTTP request timing and connection latency for a URL
 pingmap() {
     if [[ "$1" == "help" || "$1" == "-h" || -z "$1" ]]; then
         echo "${C_CYAN}📍 pingmap${C_NC}: Detailed connection latency breakdown."
@@ -91,7 +145,8 @@ pingmap() {
     fi
 
     local url="$1"
-    # Auto-prepend https:// if missing
+
+    ## Prepend https:// when the URL has no scheme
     [[ "$url" != http* ]] && url="https://$url"
 
     echo "${C_CYAN}Mapping network route to: $url${C_NC}"
@@ -99,6 +154,7 @@ pingmap() {
     curl -w "  HTTP Status   : %{http_code}\n  DNS Lookup    : %{time_namelookup}s\n  TCP Connect   : %{time_connect}s\n  TLS Handshake : %{time_appconnect}s\n  Pre-Transfer  : %{time_pretransfer}s\n  First Byte    : %{time_starttransfer}s\n----------------------------------------\n  ${C_GREEN}Total Time    : %{time_total}s${C_NC}\n\n" -o /dev/null -s "$url"
 }
 
+# Fetch terminal weather and forecast information with optional display formats
 weather() {
     if [[ "$1" == "help" || "$1" == "-h" ]]; then
         echo "${C_CYAN}☁️  weather${C_NC}: Advanced terminal weather and forecast."
@@ -141,3 +197,4 @@ weather() {
     echo "${C_CYAN}Fetching weather data...${C_NC}"
     curl -s "https://wttr.in/${loc}${format}"
 }
+
