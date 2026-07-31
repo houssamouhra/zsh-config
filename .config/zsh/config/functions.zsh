@@ -197,4 +197,3 @@ weather() {
     echo "${C_CYAN}Fetching weather data...${C_NC}"
     curl -s "https://wttr.in/${loc}${format}"
 }
-
