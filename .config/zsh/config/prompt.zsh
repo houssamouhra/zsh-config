@@ -1,3 +1,6 @@
+typeset -g GIT_INFO PATH_INFO CMD_STATUS
+typeset -g _LAST_PWD _LAST_WORKTREE _REPO_NAME
+
 setopt PROMPT_SUBST
 
 gitstatus_stop 'MY_PROMPT' 2>/dev/null
@@ -8,61 +11,62 @@ git_prompt() {
 
     local -a segments
     local deleted=$((VCS_STATUS_NUM_STAGED_DELETED + VCS_STATUS_NUM_UNSTAGED_DELETED))
+
+    (( VCS_STATUS_NUM_STAGED ))     && segments+=("%F{green}+${VCS_STATUS_NUM_STAGED}%f")
+    (( VCS_STATUS_NUM_UNSTAGED ))   && segments+=("%F{yellow}!${VCS_STATUS_NUM_UNSTAGED}%f")
+    (( VCS_STATUS_NUM_UNTRACKED ))  && segments+=("%F{cyan}?${VCS_STATUS_NUM_UNTRACKED}%f")
+    (( deleted ))                   && segments+=("%F{red}✘${deleted}%f")
+    (( VCS_STATUS_NUM_CONFLICTED )) && segments+=("%B%F{red}=${VCS_STATUS_NUM_CONFLICTED}%f%b")
+    (( VCS_STATUS_STASHES ))        && segments+=("%F{magenta}\$${VCS_STATUS_STASHES}%f")
+    (( VCS_STATUS_COMMITS_AHEAD ))  && segments+=("%F{green}⇡${VCS_STATUS_COMMITS_AHEAD}%f")
+    (( VCS_STATUS_COMMITS_BEHIND )) && segments+=("%F{yellow}⇣${VCS_STATUS_COMMITS_BEHIND}%f")
+
     local ref=$VCS_STATUS_LOCAL_BRANCH
-
-    ((VCS_STATUS_NUM_STAGED)) && segments+=("%F{green}+${VCS_STATUS_NUM_STAGED}%f")
-    ((VCS_STATUS_NUM_UNSTAGED)) && segments+=("%F{yellow}!${VCS_STATUS_NUM_UNSTAGED}%f")
-    ((VCS_STATUS_NUM_UNTRACKED)) && segments+=("%F{cyan}?${VCS_STATUS_NUM_UNTRACKED}%f")
-    ((deleted)) && segments+=("%F{red}✘${deleted}%f")
-    ((VCS_STATUS_NUM_CONFLICTED)) && segments+=("%B%F{red}=${VCS_STATUS_NUM_CONFLICTED}%f%b")
-    ((VCS_STATUS_STASHES)) && segments+=("%F{magenta}\$${VCS_STATUS_STASHES}%f")
-    ((VCS_STATUS_COMMITS_AHEAD)) && segments+=("%F{green}⇡${VCS_STATUS_COMMITS_AHEAD}%f")
-    ((VCS_STATUS_COMMITS_BEHIND)) && segments+=("%F{yellow}⇣${VCS_STATUS_COMMITS_BEHIND}%f")
-
     [[ -z $ref && -n $VCS_STATUS_TAG ]] && ref="#$VCS_STATUS_TAG"
     [[ -z $ref ]] && ref="@${VCS_STATUS_COMMIT[1,8]}"
 
-    printf "%%F{green}󰘬 %s%%f" "$ref"
+    print -rn -- "%F{green}󰘬 ${ref}%f"
 
-    (($#segments)) && printf " %%F{8}[%s%%F{8}]%%f" "${(j: :)segments}"
+    (($#segments)) && print -rn -- " %F{8}[${(j: :)segments}%F{8}]%f"
 }
 
 path_prompt() {
-    local path
-
-    if [[ $VCS_STATUS_RESULT == ok-sync ]]; then
-        if [[ $VCS_STATUS_WORKDIR != $_LAST_WORKTREE ]]; then
-            _REPO_NAME=${VCS_STATUS_WORKDIR:t}
-            _LAST_WORKTREE=$VCS_STATUS_WORKDIR
-        fi
-
-        if [[ $PWD == $VCS_STATUS_WORKDIR ]]; then
-            print -r -- "󰇘/$_REPO_NAME"
-            return
-        fi
-
-        path="$_REPO_NAME/${PWD#$VCS_STATUS_WORKDIR/}"
-    else
-        path="${(%):-%~}"
+  if [[ $VCS_STATUS_RESULT == ok-sync ]]; then
+    if [[ $VCS_STATUS_WORKDIR != ${_LAST_WORKTREE-} ]]; then
+      _REPO_NAME=${VCS_STATUS_WORKDIR:t}
+      _LAST_WORKTREE=$VCS_STATUS_WORKDIR
     fi
 
-    if [[ $path != */*/* ]]; then
-        print -r -- "$path"
-    else
-        print -r -- "󰇘/${path:h:t}/${path:t}"
+    if [[ $PWD == $VCS_STATUS_WORKDIR ]]; then
+      print -r -- "󰇘/${_REPO_NAME}"
+      return
     fi
+
+    local relative=${PWD#$VCS_STATUS_WORKDIR/}
+
+    # Show last two components when possible, otherwise just the last one
+    if [[ $relative == */* ]]; then
+      print -r -- "󰇘/${relative:h:t}/${relative:t}"
+    else
+      print -r -- "󰇘/${relative}"
+    fi
+  else
+    # Fall back to %~ but truncate similarly
+    local p=${(%):-%~}
+    if [[ $p == */*/* ]]; then
+      print -r -- "󰇘/${p:h:t}/${p:t}"
+    else
+      print -r -- "$p"
+    fi
+  fi
 }
 
 precmd() {
-    local cmd_status=$?
+    local st=$?
+    CMD_STATUS=${${st:#0}:+%F{red}➜%f}
+    CMD_STATUS=${CMD_STATUS:-%F{magenta}➜%f}
 
-    if (( cmd_status )); then
-        CMD_STATUS='%F{red}➜%f'
-    else
-        CMD_STATUS='%F{magenta}➜%f'
-    fi
-
-    if gitstatus_query 'MY_PROMPT'; then
+    if gitstatus_query -t 20 'MY_PROMPT'; then
         GIT_INFO=$(git_prompt)
     else
         GIT_INFO=
@@ -74,7 +78,4 @@ precmd() {
     fi
 }
 
-PROMPT='
-%F{blue}${PATH_INFO}%f ${GIT_INFO}
-${CMD_STATUS} '
-
+PROMPT=$'\n%F{blue}${PATH_INFO}%f ${GIT_INFO}\n${CMD_STATUS} '
