@@ -38,7 +38,7 @@ path_prompt() {
     fi
 
     if [[ $PWD == $VCS_STATUS_WORKDIR ]]; then
-      print -r -- "󰇘/${_REPO_NAME}"
+      print -rn -- "󰇘/${_REPO_NAME}"
       return
     fi
 
@@ -46,17 +46,17 @@ path_prompt() {
 
     # Show last two components when possible, otherwise just the last one
     if [[ $relative == */* ]]; then
-      print -r -- "󰇘/${relative:h:t}/${relative:t}"
+      print -rn -- "󰇘/${relative:h:t}/${relative:t}"
     else
-      print -r -- "󰇘/${relative}"
+      print -rn -- "󰇘/${relative}"
     fi
   else
     # Fall back to %~ but truncate similarly
     local p=${(%):-%~}
     if [[ $p == */*/* ]]; then
-      print -r -- "󰇘/${p:h:t}/${p:t}"
+      print -rn -- "󰇘/${p:h:t}/${p:t}"
     else
-      print -r -- "$p"
+      print -rn -- "$p"
     fi
   fi
 }
