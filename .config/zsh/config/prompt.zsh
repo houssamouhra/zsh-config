@@ -1,14 +1,20 @@
+# The prompt answers four questions:
+#   1. Where am I?                           → PATH_INFO
+#   2. What Git context am I in?             → GIT_INFO (branch/tag/HEAD)
+#   3. Is the repo in a notable state?       → status icons (+!?✘=$⇡⇣)
+#   4. Did my last command fail / take long? → CMD_STATUS + CMD_DURATION
+#
+#
 # Prompt state
-typeset -g GIT_INFO PATH_INFO CMD_STATUS
+typeset -g PATH_INFO GIT_INFO CMD_STATUS CMD_DURATION
 typeset -g _LAST_PWD _LAST_WORKTREE _REPO_NAME
 typeset -g _GITSTATUS_READY=0
-typeset -g CMD_DURATION
-typeset -gF SECONDS
+typeset -g _PROMPT_START_TIME
 
 setopt PROMPT_SUBST
 gitstatus_stop 'MY_PROMPT' 2>/dev/null
 
-# Start gitstatus after shell init (keeps startup fast)
+# Start gitstatus after shell init
 zsh-defer -c '
   gitstatus_start -s -1 -u -1 -c -1 -d -1 -e "MY_PROMPT"
   _GITSTATUS_READY=1
@@ -18,12 +24,11 @@ zsh-defer -c '
     else
       GIT_INFO=
     fi
-    PATH_INFO=$(path_prompt)
-    _LAST_PWD=$PWD
   fi
+  _refresh_path_info
   zle && zle reset-prompt
 '
-# Git: branch / tag / HEAD + icon-only status
+# Git prompt
 git_prompt() {
   [[ $VCS_STATUS_RESULT == ok-* ]] || return
 
@@ -34,9 +39,8 @@ git_prompt() {
   (( VCS_STATUS_NUM_STAGED_DELETED + VCS_STATUS_NUM_UNSTAGED_DELETED )) && segments+=("✘")
   (( VCS_STATUS_NUM_CONFLICTED ))      && segments+=("=")
   (( VCS_STATUS_STASHES ))             && segments+=("$")
-  (( VCS_STATUS_COMMITS_AHEAD && VCS_STATUS_COMMITS_BEHIND )) && segments+=("⇕${VCS_STATUS_COMMITS_AHEAD}⇣${VCS_STATUS_COMMITS_BEHIND}")
-  (( VCS_STATUS_COMMITS_AHEAD && ! VCS_STATUS_COMMITS_BEHIND )) && segments+=("⇡${VCS_STATUS_COMMITS_AHEAD}")
-  (( VCS_STATUS_COMMITS_BEHIND && ! VCS_STATUS_COMMITS_AHEAD )) && segments+=("⇣${VCS_STATUS_COMMITS_BEHIND}")
+  (( VCS_STATUS_COMMITS_AHEAD  ))      && segments+=("⇡${VCS_STATUS_COMMITS_AHEAD}")
+  (( VCS_STATUS_COMMITS_BEHIND  ))     && segments+=("⇣${VCS_STATUS_COMMITS_BEHIND}")
 
   local ref
   if [[ -n $VCS_STATUS_LOCAL_BRANCH ]]; then
@@ -51,18 +55,27 @@ git_prompt() {
   (($#segments)) && print -rn -- " %B%F{red}[${(j::)segments}]%f%b"
 }
 
+_refresh_path_info() {
+  local new_worktree=${VCS_STATUS_WORKDIR:-}
+
+  if [[ $PWD != ${_LAST_PWD-} || $new_worktree != ${_LAST_WORKTREE-} ]]; then
+      _REPO_NAME=${new_worktree:t}
+      _LAST_WORKTREE=$new_worktree
+    PATH_INFO=$(path_prompt)
+    _LAST_PWD=$PWD
+  fi
+}
+
 # Path: repo-relative when in git, otherwise last 1–2 dirs
 path_prompt() {
   if [[ $VCS_STATUS_RESULT == ok-* ]]; then
-    if [[ $VCS_STATUS_WORKDIR != ${_LAST_WORKTREE-} ]]; then
-      _REPO_NAME=${VCS_STATUS_WORKDIR:t}
-      _LAST_WORKTREE=$VCS_STATUS_WORKDIR
-    fi
     if [[ $PWD == $VCS_STATUS_WORKDIR ]]; then
       print -rn -- "${_REPO_NAME}"
       return
     fi
+
     local relative=${PWD#$VCS_STATUS_WORKDIR/}
+
     if [[ $relative == */* ]]; then
       print -rn -- "󰇘/${relative:h:t}/${relative:t}"
     else
@@ -71,6 +84,7 @@ path_prompt() {
   else
 
     local p=${(%):-%~}
+
     if [[ $p == */*/* ]]; then
       print -rn -- "󰇘/${p:h:t}/${p:t}"
     elif [[ $p == */* ]]; then
@@ -84,8 +98,7 @@ path_prompt() {
 # Async gitstatus callback
 _gitstatus_async_update() {
   GIT_INFO=$(git_prompt)
-  PATH_INFO=$(path_prompt)
-  _LAST_PWD=$PWD
+  _refresh_path_info
   zle && zle reset-prompt
 }
 
@@ -108,22 +121,17 @@ precmd() {
     unset _PROMPT_START_TIME
 
     if (( sec >= 2 )); then
-      local plain styled
       if (( sec >= 60 )); then
-        local -i m=$(( sec / 60 )) s=$(( sec % 60 ))
-        plain="took ${m}m${s}s"
-        styled="%F{8}took%f %F{yellow}${m}m${s}s%f"
+        local -i m=$(( sec / 60 ))
+        local -i s=$(( sec % 60 ))
+        CMD_DURATION="%F{yellow}${m}m${s}s%f"
       else
-        sec=$(( sec ))
-        plain="took ${sec}s"
-        styled="%F{8}took%f %F{yellow}${sec}s%f"
+        CMD_DURATION="%F{yellow}${sec}s%f"
       fi
-        local back=$(( ${#plain} + 1 ))
-        CMD_DURATION=$'%{\e[999C\e['"${back}"$'D%}'"${styled}"$'%{\e[0m%}'
     fi
   fi
 
-  # Refresh git info
+  # Intentionally do nothing on timeout — keep previous GIT_INFO to avoid flicker
   if (( _GITSTATUS_READY )); then
     if gitstatus_query -t 0.05 -c _gitstatus_async_update 'MY_PROMPT'; then
       if [[ $VCS_STATUS_RESULT == ok-sync ]]; then
@@ -131,20 +139,12 @@ precmd() {
       else
         GIT_INFO=
       fi
-    else
-      GIT_INFO=
     fi
-  else
-    GIT_INFO=
   fi
 
-  # Refresh path when cwd changes
-  if [[ ${_LAST_PWD-} != $PWD || $VCS_STATUS_RESULT == ok-* ]]; then
-    PATH_INFO=$(path_prompt)
-    _LAST_PWD=$PWD
-  fi
+  # path updates on PWD or worktree change
+  _refresh_path_info
 }
 
-PROMPT=$'\n%B%F{blue}${PATH_INFO}%f%b ${GIT_INFO}${CMD_DURATION}\n${CMD_STATUS} '
-RPROMPT=
-
+PROMPT=$'\n%B%F{blue}${PATH_INFO}%f%b ${GIT_INFO}\n${CMD_STATUS} '
+RPROMPT='${CMD_DURATION}'
