@@ -4,30 +4,20 @@
 #   3. Is the repo in a notable state?       → status icons (+!?✘=$⇡⇣)
 #   4. Did my last command fail / take long? → CMD_STATUS + CMD_DURATION
 #
-#
-# Prompt state
 typeset -g PATH_INFO GIT_INFO CMD_STATUS CMD_DURATION
 typeset -g _LAST_PWD _LAST_WORKTREE _REPO_NAME
 typeset -g _GITSTATUS_READY=0
 typeset -g _PROMPT_START_TIME
-
 setopt PROMPT_SUBST
-gitstatus_stop 'MY_PROMPT' 2>/dev/null
 
-# Start gitstatus after shell init
+# Start the daemon only once, after the shell is interactive
 zsh-defer -c '
   gitstatus_start -s -1 -u -1 -c -1 -d -1 -e "MY_PROMPT"
   _GITSTATUS_READY=1
-  if gitstatus_query -t 0.3 -c _gitstatus_async_update "MY_PROMPT"; then
-    if [[ $VCS_STATUS_RESULT == ok-sync ]]; then
-      GIT_INFO=$(git_prompt)
-    else
-      GIT_INFO=
-    fi
-  fi
-  _refresh_path_info
-  zle && zle reset-prompt
+  # Fire the first query asynchronously (no blocking)
+  gitstatus_query -t 0 -c _gitstatus_async_update "MY_PROMPT"
 '
+
 # Git prompt
 git_prompt() {
   [[ $VCS_STATUS_RESULT == ok-* ]] || return
@@ -58,9 +48,10 @@ git_prompt() {
 _refresh_path_info() {
   local new_worktree=${VCS_STATUS_WORKDIR:-}
 
+  # Only recalculate when something actually changed
   if [[ $PWD != ${_LAST_PWD-} || $new_worktree != ${_LAST_WORKTREE-} ]]; then
-      _REPO_NAME=${new_worktree:t}
-      _LAST_WORKTREE=$new_worktree
+    _REPO_NAME=${new_worktree:t}
+    _LAST_WORKTREE=$new_worktree
     PATH_INFO=$(path_prompt)
     _LAST_PWD=$PWD
   fi
@@ -75,7 +66,6 @@ path_prompt() {
     fi
 
     local relative=${PWD#$VCS_STATUS_WORKDIR/}
-
     if [[ $relative == */* ]]; then
       print -rn -- "󰇘/${relative:h:t}/${relative:t}"
     else
@@ -84,7 +74,6 @@ path_prompt() {
   else
 
     local p=${(%):-%~}
-
     if [[ $p == */*/* ]]; then
       print -rn -- "󰇘/${p:h:t}/${p:t}"
     elif [[ $p == */* ]]; then
@@ -95,26 +84,25 @@ path_prompt() {
   fi
 }
 
-# Async gitstatus callback
+# Called by gitstatus when the async result arrives
 _gitstatus_async_update() {
   GIT_INFO=$(git_prompt)
   _refresh_path_info
-  zle && zle reset-prompt
+  # Only redraw if something visible changed
+  [[ $GIT_INFO != $old_git || $PATH_INFO != ${_LAST_PATH_INFO-} ]] && zle && zle reset-prompt
+  _LAST_PATH_INFO=$PATH_INFO
 }
 
-# Command duration
 preexec() {
   _PROMPT_START_TIME=$SECONDS
 }
 
 precmd() {
   local st=$?
-
-  # Exit-status arrow
   CMD_STATUS=${${st:#0}:+%F{red}➜%f}
   CMD_STATUS=${CMD_STATUS:-%F{magenta}➜%f}
 
-  # Duration (shown only if command took ≥ 2s)
+  # Duration
   CMD_DURATION=
   if (( ${+_PROMPT_START_TIME} )); then
     local -i sec=$(( SECONDS - _PROMPT_START_TIME ))
@@ -131,15 +119,9 @@ precmd() {
     fi
   fi
 
-  # Intentionally do nothing on timeout — keep previous GIT_INFO to avoid flicker
+  # Pure async – never blocks the prompt
   if (( _GITSTATUS_READY )); then
-    if gitstatus_query -t 0.05 -c _gitstatus_async_update 'MY_PROMPT'; then
-      if [[ $VCS_STATUS_RESULT == ok-sync ]]; then
-        GIT_INFO=$(git_prompt)
-      else
-        GIT_INFO=
-      fi
-    fi
+    gitstatus_query -t 0 -c _gitstatus_async_update 'MY_PROMPT'
   fi
 
   # path updates on PWD or worktree change
