@@ -55,7 +55,6 @@ load-zsh-patina() {
     # Clone on first use
     if [[ ! -d "$dir" ]]; then
         print -u2 -P "==> Installing zsh-patina..."
-
         if ! git clone --depth=1 --quiet \
             https://github.com/michel-kraemer/zsh-patina.git "$dir"; then
             rm -rf "$dir"
@@ -64,29 +63,19 @@ load-zsh-patina() {
         fi
     fi
 
-    # Build if the binary doesn't exist
-    if [[ ! -x "$ZSH_PATINA_PATH" ]]; then
-        print -u2 -P "==> Building zsh-patina..."
-
-        if ! (( $+commands[cargo] )); then
-            print -u2 -P "%F{red}cargo is not installed%f"
-            return 1
-        fi
-
-        if ! (cd "$dir" && cargo build --release --quiet); then
-            print -u2 -P "%F{red}✗ Failed to build zsh-patina%f"
-            return 1
-        fi
-
-        print -u2 -P "%F{green}✓ Built zsh-patina%f"
+    # Prefer a pre-built binary. Never build at shell startup.
+    if [[ ! -x $ZSH_PATINA_PATH ]]; then
+        print -u2 -P "%F{red}zsh-patina binary not found at $ZSH_PATINA_PATH%f"
+        print -u2 -P "Build it once with: (cd $dir && cargo build --release)"
+        return 1
     fi
 
     # Activate zsh-patina
     _zsh_patina_activate() {
         unfunction _zsh_patina_activate
+        add-zsh-hook -d precmd _zsh_patina_activate
         eval "$("$ZSH_PATINA_PATH" activate)"
     }
-    add-zsh-hook -d precmd _zsh_patina_activate 2>/dev/null
     add-zsh-hook precmd _zsh_patina_activate
 }
 
@@ -146,10 +135,12 @@ _update_plugin_success() {
 # Load plugins
 source "$(plugin-path romkatv gitstatus)"
 source "$(plugin-path romkatv zsh-defer)"
-zsh-defer source "$(plugin-path mattmc3 ez-compinit)"
-zsh-defer source "$(plugin-path zsh-users zsh-completions)"
-zsh-defer source "$(plugin-path aloxaf fzf-tab)"
-zsh-defer source "$(plugin-path zsh-users zsh-autosuggestions)"
-zsh-defer source "$(plugin-path zsh-users zsh-history-substring-search)"
-zsh-defer source "$(plugin-path houssamouhra colored-man-pages)"
-load-zsh-patina
+zsh-defer -c '
+  source "$(plugin-path mattmc3 ez-compinit)"
+  source "$(plugin-path zsh-users zsh-completions)"
+  source "$(plugin-path aloxaf fzf-tab)"
+  source "$(plugin-path zsh-users zsh-autosuggestions)"
+  source "$(plugin-path zsh-users zsh-history-substring-search)"
+  source "$(plugin-path houssamouhra colored-man-pages)"
+  load-zsh-patina
+'
