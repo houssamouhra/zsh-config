@@ -34,15 +34,15 @@ A small set of focused plugins keeps the shell efficient and practical.
 
 ## Benchmark
 
-Measured with the shell running interactively using [zsh-bench](https://github.com/romkatv/zsh-bench)
+Measured with the shell running interactively **on login** using [zsh-bench](https://github.com/romkatv/zsh-bench)
 
 | Metric            |     Result |
 | ----------------- | ---------: |
-| First prompt lag  |109.829 ms |
-| First command lag |112.493 ms |
-| Command lag       |  16.707 ms |
+| First prompt lag  |16.963 ms |
+| First command lag | 17.380 ms |
+| Command lag       | 14.531 ms |
 | Input lag         |   3.332 ms |
-| Exit time         | 105.280 ms |
+| Exit time         |  15.100 ms |
 
 ## License
 
