@@ -15,7 +15,7 @@ plugin-path() {
     # Clone the plugin if it's not installed
     if [[ ! -d "$dir" ]]; then
         mkdir -p "$ZSH_PLUGIN_DIR" || return 1
-        print -u2 -P "==> Installing $repo..."
+        print -u2 -P "==> Installing %F{cyan}$repo%f..."
 
         if ! git clone --depth=1 --quiet \
             "https://github.com/$owner/$repo" "$dir"; then
@@ -23,16 +23,19 @@ plugin-path() {
             print -u2 -P "%F{red}✗ Failed to install $repo%f"
             return 1
         fi
-
         print -u2 -P "%F{green}✓ Installed $repo%f"
     fi
 
+    # Prefer the conventional entry points
     local entry
     for entry in \
         "$dir/$repo.plugin.zsh" \
         "$dir"/*.plugin.zsh(N) \
         "$dir/$repo.zsh"; do
-        [[ -r $entry ]] && { print -r -- $entry; return 0 }
+        [[ -r $entry ]] && {
+            print -r -- $entry
+            return 0
+        }
     done
 
     # Last resort: only if there is exactly one *.zsh in the root
@@ -46,37 +49,56 @@ plugin-path() {
     return 1
 }
 
-# Install and initialize zsh-patina
-# A Fast syntax highlighter
+# Install (and build if needed) + activate zsh-patina
+# A fast syntax highlighter written in Rust
 load-zsh-patina() {
     emulate -L zsh
     local dir="$ZSH_PLUGIN_DIR/zsh-patina"
 
     # Clone on first use
     if [[ ! -d "$dir" ]]; then
-        print -u2 -P "==> Installing zsh-patina..."
+        print -u2 -P "==> Installing %F{cyan}zsh-patina%f..."
         if ! git clone --depth=1 --quiet \
             https://github.com/michel-kraemer/zsh-patina.git "$dir"; then
             rm -rf "$dir"
             print -u2 -P "%F{red}✗ Failed to clone zsh-patina%f"
             return 1
         fi
+        print -u2 -P "%F{green}✓ Cloned zsh-patina%f"
     fi
 
-    # Prefer a pre-built binary. Never build at shell startup.
+    # Build the binary if it is missing
     if [[ ! -x $ZSH_PATINA_PATH ]]; then
-        print -u2 -P "%F{red}zsh-patina binary not found at $ZSH_PATINA_PATH%f"
-        print -u2 -P "Build it once with: (cd $dir && cargo build --release)"
+        if ! (( $+commands[cargo] )); then
+            print -u2 -P "%F{red}zsh-patina binary not found at $ZSH_PATINA_PATH%f"
+            print -u2 -P "Install Rust[](https://rustup.rs) and then run:"
+            print -u2 -P "  (cd $dir && cargo build --release)"
+            return 1
+        fi
+
+        print -u2 -P "==> Building %F{cyan}zsh-patina%f..."
+        if ! (cd "$dir" && cargo build --release --quiet); then
+            print -u2 -P "%F{red}✗ Failed to build zsh-patina%f"
+            return 1
+        fi
+        print -u2 -P "%F{green}✓ Built zsh-patina%f"
+    fi
+
+    # Final sanity check
+    if [[ ! -x $ZSH_PATINA_PATH ]]; then
+        print -u2 -P "%F{red}zsh-patina binary still not found at $ZSH_PATINA_PATH%f"
         return 1
     fi
 
-    # Activate zsh-patina
-    _zsh_patina_activate() {
-        unfunction _zsh_patina_activate
-        add-zsh-hook -d precmd _zsh_patina_activate
-        eval "$("$ZSH_PATINA_PATH" activate)"
-    }
-    add-zsh-hook precmd _zsh_patina_activate
+    # Activate only once (safe to call multiple times)
+    if ! typeset -f _zsh_patina_activate >/dev/null 2>&1; then
+        _zsh_patina_activate() {
+            unfunction _zsh_patina_activate
+            add-zsh-hook -d precmd _zsh_patina_activate
+            eval "$("$ZSH_PATINA_PATH" activate)"
+        }
+        add-zsh-hook precmd _zsh_patina_activate
+    fi
 }
 
 # Update all installed plugin repositories
@@ -87,9 +109,7 @@ update-plugin() {
     # Iterate over plugin directories only
     for dir in "$ZSH_PLUGIN_DIR"/*(/); do
         [[ -d "$dir/.git" ]] || continue
-
         old=$(git -C "$dir" rev-parse HEAD 2>/dev/null) || continue
-
         printf "%-32s" "${dir:t}"
 
         # Fetch once
@@ -132,9 +152,24 @@ _update_plugin_success() {
     esac
 }
 
-# Load plugins
+# Install every plugin now
+plugin-path romkatv gitstatus               >/dev/null
+plugin-path romkatv zsh-defer               >/dev/null
+plugin-path mattmc3 ez-compinit             >/dev/null
+plugin-path zsh-users zsh-completions       >/dev/null
+plugin-path aloxaf fzf-tab                  >/dev/null
+plugin-path zsh-users zsh-autosuggestions   >/dev/null
+plugin-path zsh-users zsh-history-substring-search >/dev/null
+plugin-path houssamouhra colored-man-pages  >/dev/null
+
+# Ensure zsh-patina is cloned + built early (so the binary is ready)
+load-zsh-patina >/dev/null
+
+# Load the critical ones immediately
 source "$(plugin-path romkatv gitstatus)"
 source "$(plugin-path romkatv zsh-defer)"
+
+# Defer the rest (they are already installed, so no extra messages)
 zsh-defer -c '
   source "$(plugin-path mattmc3 ez-compinit)"
   source "$(plugin-path zsh-users zsh-completions)"
