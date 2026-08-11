@@ -40,8 +40,8 @@ Measured with the shell running interactively **on login** using [zsh-bench](htt
 | ----------------- | ---------: |
 | First prompt lag  |16.963 ms |
 | First command lag | 17.380 ms |
-| Command lag       | 14.531 ms |
-| Input lag         |   3.332 ms |
+| Command lag       | 13.187 ms |
+| Input lag         |   3.318 ms |
 | Exit time         |  15.100 ms |
 
 ## License
