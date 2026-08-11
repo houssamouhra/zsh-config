@@ -39,10 +39,10 @@ _fzf_history_lazy() {
 		setopt pipefail no_aliases
 
 		selected=$(
-		    fc -lnr 1 |
-		    awk '!seen[$0]++' |
-		    FZF_DEFAULT_OPTS="${FZF_DEFAULT_OPTS:-} ${FZF_CTRL_R_OPTS}" \
-		    fzf +m --query "$LBUFFER"
+			fc -lnr 1 |
+			awk '!seen[$0]++' |
+			FZF_DEFAULT_OPTS="${FZF_DEFAULT_OPTS:-} ${FZF_CTRL_R_OPTS}" \
+			fzf +m --query "$LBUFFER"
 		)
 
 		ret=$?

@@ -102,7 +102,7 @@ precmd() {
 	CMD_STATUS=${${st:#0}:+%F{red}➜%f}
 	CMD_STATUS=${CMD_STATUS:-%F{magenta}➜%f}
 
-    # Duration
+	# Duration
 	CMD_DURATION=
 	if (( ${+_PROMPT_START_TIME} )); then
 		local -i sec=$(( SECONDS - _PROMPT_START_TIME ))

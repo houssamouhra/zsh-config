@@ -33,20 +33,20 @@ plugin-path() {
 		"$dir"/*.plugin.zsh(N) \
 		"$dir/$repo.zsh"; do
 		[[ -r $entry ]] && {
-		    print -r -- $entry
-		    return 0
-	    }
+        	print -r -- $entry
+			return 0
+		}
     done
 
     # Last resort: only if there is exactly one *.zsh in the root
     local -a candidates=("$dir"/*.zsh(N))
     if (( $#candidates == 1 )) && [[ -r $candidates[1] ]]; then
-	    print -r -- $candidates[1]
-	    return 0
-    fi
+    	print -r -- $candidates[1]
+    	return 0
+	fi
 
-    print -u2 -P "%F{red}Missing plugin entry:%f $dir"
-    return 1
+	print -u2 -P "%F{red}Missing plugin entry:%f $dir"
+	return 1
 }
 
 # Install (and build if needed) + activate zsh-patina
