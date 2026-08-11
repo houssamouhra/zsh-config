@@ -16,7 +16,7 @@ No heavy plugin manager required.
 
 The prompt follows a Zen-inspired design that is minimal, clean, and native.
 
-It focuses on useful information such as the current directory with smart path truncation, Git status, command duration, and command state without relying on a separate prompt framework like [Starship](https://github.com/starship/starship) or [Powerlevel10k](https://github.com/romkatv/powerlevel10k)
+It focuses on useful information such as the **current directory with smart path truncation**, **Git status**, **command duration**, and **command state** without relying on a separate prompt framework like [Starship](https://github.com/starship/starship) or [Powerlevel10k](https://github.com/romkatv/powerlevel10k)
 
 ## Plugins
 
