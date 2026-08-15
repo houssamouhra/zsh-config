@@ -1,9 +1,11 @@
 # Colors
-C_RED=$'\e[0;31m'
-C_GREEN=$'\e[0;32m'
-C_YELLOW=$'\e[0;33m'
-C_CYAN=$'\e[0;36m'
-C_NC=$'\e[0m'
+autoload -Uz colors && colors
+
+C_RED=${fg[red]}
+C_GREEN=${fg[green]}
+C_YELLOW=${fg[yellow]}
+C_CYAN=${fg[cyan]}
+C_NC=${reset_color}
 
 # SSH Agent / Keychain
 _ssh_agent_lazy() {
