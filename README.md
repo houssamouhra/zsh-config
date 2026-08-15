@@ -4,45 +4,47 @@ A modular, lightweight, and performance-focused Zsh configuration built for my w
 
 ## Philosophy
 
-Every part of the configuration has a purpose, with functionality split into focused modules rather than relying on a large framework.
+Speed and simplicity first.
 
-## Plugin Management
+No frameworks. No bloat.
 
-Plugins are managed through a small custom loader [plugins.zsh](https://github.com/houssamouhra/zsh-config/blob/main/.config/zsh/plugins.zsh) that handles installation, loading, updates, and optional deferred loading.
+The configuration is fully modular, deliberately minimal, and built so that every piece has a clear reason to exist.
 
-No heavy plugin manager required.
+## Features
 
-## Prompt
-
-The prompt follows a Zen-inspired design that is minimal, clean, and native.
-
-It focuses on useful information such as the **current directory with smart path truncation**, **Git status**, **command duration**, and **command state** without relying on a separate prompt framework like [Starship](https://github.com/starship/starship) or [Powerlevel10k](https://github.com/romkatv/powerlevel10k)
+- **Modular design** — Configuration is split into focused modules (`prompt`, `history`, `keybinds`, `aliases`, `fzf`, `functions`) for easy maintenance and clarity.
+- **Blazing-fast startup** — Deferred plugin loading (`zsh-defer`), cached completions (`ez-compinit`), and a non-blocking prompt. First prompt appears in ~17 ms.
+- **Minimal native prompt** — Clean prompt with smart path truncation, real-time Git status (via `gitstatus`), command duration, and command state. No external prompt frameworks.
+- **Enhanced completions** — `fzf-tab` replaces the default menu with a fast interactive fuzzy finder, plus extra completions from `zsh-completions`.
+- **Smart history** — Substring search, history-based autosuggestions, and optimized history settings.
+- **Quality-of-life extras** — Syntax highlighting (`zsh-patina`), colored man pages, useful aliases, custom functions, and thoughtful keybindings.
+- **Lightweight by design** — No Oh My Zsh, no heavy plugin managers. Just a small custom loader and a carefully chosen set of plugins.
 
 ## Plugins
 
 A small set of focused plugins keeps the shell efficient and practical.
 
-- [gitstatus](https://github.com/romkatv/gitstatus) — fast Git status information for the prompt.
-- [zsh-defer](https://github.com/romkatv/zsh-defer) — defers non-critical plugin initialization to improve startup time.
-- [ez-compinit](https://github.com/mattmc3/ez-compinit) — lightweight and fast Zsh completion setup.
-- [zsh-completions](https://github.com/zsh-users/zsh-completions) — additional completion definitions.
-- [fzf-tab](https://github.com/Aloxaf/fzf-tab) — replaces standard completion menus with an interactive fzf interface.
-- [zsh-autosuggestions](https://github.com/zsh-users/zsh-autosuggestions) — suggests commands as you type based on your history.
-- [zsh-history-substring-search](https://github.com/zsh-users/zsh-history-substring-search) — searches history by substring.
-- [colored-man-pages](https://github.com/houssamouhra/colored-man-pages) — adds colors to man pages for easier reading.
-- [zsh-patina](https://github.com/michel-kraemer/zsh-patina) — blazingly fast Zsh syntax highlighter.
+- [gitstatus](https://github.com/romkatv/gitstatus) — extremely fast Git status for the prompt
+- [zsh-defer](https://github.com/romkatv/zsh-defer) — defers non-critical plugins to improve startup time
+- [ez-compinit](https://github.com/mattmc3/ez-compinit) — lightweight and fast completion initialization
+- [zsh-completions](https://github.com/zsh-users/zsh-completions) — additional completion definitions
+- [fzf-tab](https://github.com/Aloxaf/fzf-tab) — interactive fzf completion menu
+- [zsh-autosuggestions](https://github.com/zsh-users/zsh-autosuggestions) — fish-like history-based suggestions
+- [zsh-history-substring-search](https://github.com/zsh-users/zsh-history-substring-search) — search history by substring
+- [colored-man-pages](https://github.com/houssamouhra/colored-man-pages) — colored man pages
+- [zsh-patina](https://github.com/michel-kraemer/zsh-patina) — fast syntax highlighting
 
 ## Benchmark
 
-Measured with the shell running interactively **on login** using [zsh-bench](https://github.com/romkatv/zsh-bench)
+Measured interactively **on login** with [zsh-bench](https://github.com/romkatv/zsh-bench):
 
-| Metric            |     Result |
-| ----------------- | ---------: |
-| First prompt lag  |16.963 ms |
-| First command lag | 17.380 ms |
-| Command lag       | 13.187 ms |
-| Input lag         |   3.318 ms |
-| Exit time         |  15.100 ms |
+| Metric              | Result     |
+|---------------------|-----------:|
+| First prompt lag    | 16.963 ms  |
+| First command lag   | 17.380 ms  |
+| Command lag         | 13.187 ms  |
+| Input lag           |  3.318 ms  |
+| Exit time           | 15.100 ms  |
 
 ## License
 
