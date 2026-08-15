@@ -12,13 +12,26 @@ The configuration is fully modular, deliberately minimal, and built so that ever
 
 ## Features
 
-- **Modular design** — Configuration is split into focused modules (`prompt`, `history`, `keybinds`, `aliases`, `fzf`, `functions`) for easy maintenance and clarity.
-- **Blazing-fast startup** — Deferred plugin loading (`zsh-defer`), cached completions (`ez-compinit`), and a non-blocking prompt. First prompt appears in ~17 ms.
-- **Minimal native prompt** — Clean prompt with smart path truncation, real-time Git status (via `gitstatus`), command duration, and command state. No external prompt frameworks.
-- **Enhanced completions** — `fzf-tab` replaces the default menu with a fast interactive fuzzy finder, plus extra completions from `zsh-completions`.
-- **Smart history** — Substring search, history-based autosuggestions, and optimized history settings.
-- **Quality-of-life extras** — Syntax highlighting (`zsh-patina`), colored man pages, useful aliases, custom functions, and thoughtful keybindings.
-- **Lightweight by design** — No Oh My Zsh, no heavy plugin managers. Just a small custom loader and a carefully chosen set of plugins.
+- **Modular configuration**  
+  Split into focused modules (`prompt`, `history`, `keybinds`, `aliases`, `fzf`, `functions`) for easy maintenance.
+
+- **Fast startup**  
+  Deferred plugin loading (`zsh-defer`), cached completions (`ez-compinit`), and a non-blocking prompt. First prompt appears in ~17 ms.
+
+- **Minimal native prompt**  
+  Smart path truncation, real-time Git status, command duration, and command state. No external prompt frameworks.
+
+- **Enhanced completions**  
+  Interactive `fzf-tab` menu with extra completions from `zsh-completions`.
+
+- **Smart history**  
+  Substring search, history-based autosuggestions, and optimized history settings.
+
+- **Quality-of-life features**  
+  Syntax highlighting (`zsh-patina`), colored man pages, useful aliases, custom functions, and thoughtful keybindings.
+
+- **Lightweight by design**  
+  No Oh My Zsh, no heavy plugin managers. Just a [minimal custom loader](https://github.com/houssamouhra/zsh-config/blob/main/.config/zsh/plugins.zsh), lazy-loaded functionality, and a carefully chosen set of plugins.
 
 ## Plugins
 
