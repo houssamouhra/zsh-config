@@ -16,7 +16,7 @@ The configuration is fully modular, deliberately minimal, and built so that ever
   Split into focused modules (`prompt`, `history`, `keybinds`, `aliases`, `fzf`, `functions`) for easy maintenance.
 
 - **Fast startup**  
-  Deferred plugin loading (`zsh-defer`), cached completions (`ez-compinit`), and a non-blocking prompt. First prompt appears in ~17 ms.
+  Deferred plugin loading (`zsh-defer`), lazy-loaded functionality, cached completions (`ez-compinit`), and a non-blocking prompt. First prompt appears in ~17 ms.
 
 - **Minimal native prompt**  
   Smart path truncation, real-time Git status, command duration, and command state. No external prompt frameworks.
@@ -31,7 +31,7 @@ The configuration is fully modular, deliberately minimal, and built so that ever
   Syntax highlighting (`zsh-patina`), colored man pages, useful aliases, custom functions, and thoughtful keybindings.
 
 - **Lightweight by design**  
-  No Oh My Zsh, no heavy plugin managers. Just a [minimal custom loader](https://github.com/houssamouhra/zsh-config/blob/main/.config/zsh/plugins.zsh), lazy-loaded functionality, and a carefully chosen set of plugins.
+  No Oh My Zsh, no heavy plugin managers. Just a [minimal custom loader](https://github.com/houssamouhra/zsh-config/blob/main/.config/zsh/plugins.zsh), and a carefully chosen set of plugins.
 
 ## Terminal
 
