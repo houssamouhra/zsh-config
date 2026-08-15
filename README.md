@@ -33,6 +33,10 @@ The configuration is fully modular, deliberately minimal, and built so that ever
 - **Lightweight by design**  
   No Oh My Zsh, no heavy plugin managers. Just a [minimal custom loader](https://github.com/houssamouhra/zsh-config/blob/main/.config/zsh/plugins.zsh), lazy-loaded functionality, and a carefully chosen set of plugins.
 
+## Terminal
+
+Shell startup is only part of the experience. I use [Ghostty](https://ghostty.org), a GPU-accelerated native terminal emulator, to keep the overall terminal experience fast and responsive.
+
 ## Plugins
 
 A small set of focused plugins keeps the shell efficient and practical.
