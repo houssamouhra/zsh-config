@@ -2,6 +2,10 @@
 
 A modular, lightweight, and performance-focused Zsh configuration built for my workflow as a software engineer.
 
+> **Note**
+> This setup uses an XDG-based configuration path for zsh. The main config lives under `$ZDOTDIR` (`$XDG_CONFIG_HOME/zsh`).  
+> `$HOME/.zshenv` sets `$ZDOTDIR` so zsh loads the XDG config. A separate `$ZDOTDIR/.zshenv` holds the environment variables.
+
 ## Philosophy
 
 Speed and simplicity first.
