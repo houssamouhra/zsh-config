@@ -71,7 +71,7 @@ load-zsh-patina() {
 	if [[ ! -x $ZSH_PATINA_PATH ]]; then
 		if ! (( $+commands[cargo] )); then
 			print -u2 -P "%F{red}zsh-patina binary not found at $ZSH_PATINA_PATH%f"
-			print -u2 -P "Install Rust[](https://rustup.rs) and then run:"
+			print -u2 -P "Install Rust from https://rustup.rs and then run:"
 			print -u2 -P "  (cd $dir && cargo build --release)"
 			return 1
 		fi
