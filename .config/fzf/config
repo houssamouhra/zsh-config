@@ -1,0 +1,18 @@
+--prompt="➜ "
+--highlight-line
+--layout=reverse
+--info=inline-right
+--ansi
+--multi
+--cycle
+--bind change:first
+--tiebreak=index
+--bind=ctrl-space:toggle
+--color=bg+:#283457
+--color=hl+:#2ac3de
+--color=hl:#2ac3de
+--color=marker:#ff007c
+--color=info:#545c7e
+--color=pointer:#ff007c
+--color=prompt:#2ac3de
+--color=spinner:#ff007c
