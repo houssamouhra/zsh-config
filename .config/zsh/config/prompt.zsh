@@ -20,7 +20,7 @@ gitstatus_query -t 0 -c _gitstatus_async_update "MY_PROMPT"
 
 # Git prompt
 git_prompt() {
-	[[ $VCS_STATUS_RESULT == ok-* ]] || return
+	[[ "$VCS_STATUS_RESULT" == ok-* ]] || return
 
 	local -a segments
 	(( VCS_STATUS_NUM_STAGED ))          && segments+=("+")
@@ -33,25 +33,25 @@ git_prompt() {
 	(( VCS_STATUS_COMMITS_BEHIND  ))     && segments+=("⇣${VCS_STATUS_COMMITS_BEHIND}")
 
 	local ref
-	if [[ -n $VCS_STATUS_LOCAL_BRANCH ]]; then
-		ref=$VCS_STATUS_LOCAL_BRANCH
-	elif [[ -n $VCS_STATUS_TAG ]]; then
+	if [[ -n "$VCS_STATUS_LOCAL_BRANCH" ]]; then
+		ref="$VCS_STATUS_LOCAL_BRANCH"
+	elif [[ -n "$VCS_STATUS_TAG" ]]; then
 		ref="#$VCS_STATUS_TAG"
 	else
-		ref="HEAD (${VCS_STATUS_COMMIT[1,7]})"
+		ref="HEAD ("${VCS_STATUS_COMMIT[1,7]}")"
 	fi
 
 	print -rn -- "%F{green}󰘬 ${ref}%f"
-	(($#segments)) && print -rn -- " %B%F{red}[${(j::)segments}]%f%b"
+	(("$#segments")) && print -rn -- " %B%F{red}["${(j::)segments}"]%f%b"
 }
 
 _refresh_path_info() {
-	local new_worktree=${VCS_STATUS_WORKDIR:-}
+	local new_worktree="${VCS_STATUS_WORKDIR:-}"
 
 	# Only recalculate when something actually changed
-	if [[ $PWD != ${_LAST_PWD-} || $new_worktree != ${_LAST_WORKTREE-} ]]; then
-		_REPO_NAME=${new_worktree:t}
-		_LAST_WORKTREE=$new_worktree
+	if [[ "$PWD" != "${_LAST_PWD-}" || "$new_worktree" != "${_LAST_WORKTREE-}" ]]; then
+		_REPO_NAME="${new_worktree:t}"
+		_LAST_WORKTREE="$new_worktree"
 		PATH_INFO=$(path_prompt)
 		_LAST_PWD=$PWD
 	fi
@@ -59,27 +59,50 @@ _refresh_path_info() {
 
 # Path: repo-relative when in git, otherwise last 1–2 dirs
 path_prompt() {
-	if [[ $VCS_STATUS_RESULT == ok-* ]]; then
-		if [[ $PWD == $VCS_STATUS_WORKDIR ]]; then
+	if [[ "$VCS_STATUS_RESULT" == ok-* ]]; then
+		if [[ "$PWD" == "$VCS_STATUS_WORKDIR" ]]; then
 			print -rn -- "${_REPO_NAME}"
 			return
 		fi
 
-		local relative=${PWD#$VCS_STATUS_WORKDIR/}
-		if [[ $relative == */* ]]; then
-			print -rn -- "󰇘/${relative:h:t}/${relative:t}"
+		local relative=${PWD#"$VCS_STATUS_WORKDIR"/}
+
+		if [[ "$relative" == */* ]]; then
+			print -rn -- "…/${relative:h:t}/${relative:t}"
 		else
-			print -rn -- "󰇘/${relative}"
+			print -rn -- "…/${relative}"
 		fi
 	else
 
-		local p=${(%):-%~}
-		if [[ $p == */*/* ]]; then
-			print -rn -- "󰇘/${p:h:t}/${p:t}"
-		elif [[ $p == */* ]]; then
-			print -rn -- "󰇘/${p:t}"
+		# $HOME itself
+		if [[ "$PWD" == "$HOME" ]]; then
+			print -rn -- "~"
+			return
+		fi
+
+		local relative parts
+
+		# Paths inside $HOME
+		if [[ "$PWD" == "$HOME"/* ]]; then
+			relative="${PWD#"$HOME"/}"
+			parts=("${(@s:/:)relative}")
+
+			if (( "${#parts}" <= 3 )); then
+				print -rn -- "~/${relative}"
+			else
+				print -rn -- "…/${parts[-2]}/${parts[-1]}"
+			fi
+
+			return
+		fi
+
+		# Paths outside $HOME
+		parts=("${(@s:/:)PWD}")
+
+		if (( ${#parts} <= 2 )); then
+			print -rn -- "${(%):-%~}"
 		else
-			print -rn -- "$p"
+			print -rn -- "…/${parts[-2]}/${parts[-1]}"
 		fi
 	fi
 }
@@ -89,12 +112,12 @@ _gitstatus_async_update() {
 	GIT_INFO=$(git_prompt)
 	_refresh_path_info
 	# Only redraw if something visible changed
-	[[ $GIT_INFO != $old_git || $PATH_INFO != ${_LAST_PATH_INFO-} ]] && zle && zle reset-prompt
-	_LAST_PATH_INFO=$PATH_INFO
+	[[ "$GIT_INFO" != "$old_git" || "$PATH_INFO" != "${_LAST_PATH_INFO-}" ]] && zle && zle reset-prompt
+	_LAST_PATH_INFO="$PATH_INFO"
 }
 
 preexec() {
-	_PROMPT_START_TIME=$SECONDS
+	_PROMPT_START_TIME="$SECONDS"
 }
 
 precmd() {
@@ -104,14 +127,14 @@ precmd() {
 
 	# Duration
 	CMD_DURATION=
-	if (( ${+_PROMPT_START_TIME} )); then
-		local -i sec=$(( SECONDS - _PROMPT_START_TIME ))
+	if (( "${+_PROMPT_START_TIME}" )); then
+		local -i sec="$(( SECONDS - _PROMPT_START_TIME ))"
 		unset _PROMPT_START_TIME
 
 		if (( sec >= 2 )); then
 			if (( sec >= 60 )); then
-				local -i m=$(( sec / 60 ))
-				local -i s=$(( sec % 60 ))
+				local -i m="$(( sec / 60 ))"
+				local -i s="$(( sec % 60 ))"
 				CMD_DURATION="%F{yellow}${m}m${s}s%f"
 			else
 				CMD_DURATION="%F{yellow}${sec}s%f"
