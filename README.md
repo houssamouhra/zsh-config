@@ -39,7 +39,7 @@ The configuration is fully modular, deliberately minimal, and built so that ever
 
 ## Terminal
 
-Shell startup is only part of the experience. I use [Ghostty](https://ghostty.org), a GPU-accelerated native terminal emulator, to keep the overall terminal experience fast and responsive.
+Shell startup is only part of the experience. I use [foot](https://codeberg.org/dnkl/foot), a lightweight, Wayland-native terminal emulator, to keep the overall terminal experience fast and responsive.
 
 ## Plugins
 
