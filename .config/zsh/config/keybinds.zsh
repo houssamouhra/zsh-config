@@ -21,5 +21,10 @@ bindkey '^f' forward-char
 bindkey '^p' history-substring-search-up
 bindkey '^n' history-substring-search-down
 
+# Open the current command line in your $EDITOR
+autoload -Uz edit-command-line
+zle -N edit-command-line
+bindkey '^X^E' edit-command-line
+
 # Shortcuts
 bindkey -s '^G' 'tmux-sessionizer'
