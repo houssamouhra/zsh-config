@@ -153,3 +153,4 @@ precmd() {
 
 PROMPT=$'\n%B%F{blue}${PATH_INFO}%f%b ${GIT_INFO}\n${CMD_STATUS} '
 RPROMPT='${CMD_DURATION}'
+PROMPT_EOL_MARK='↩'
