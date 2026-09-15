@@ -22,7 +22,7 @@ The configuration is fully modular, deliberately minimal, and built so that ever
 - **Fast startup**  
   Deferred plugin loading (`zsh-defer`), lazy-loaded functionality, cached completions (`ez-compinit`), and a non-blocking prompt. First prompt appears in ~17 ms.
 
-- **Minimal native prompt** *inspired by Pure prompt*  
+- **Minimal native prompt** *(inspired by Pure prompt)*  
   Smart path truncation, real-time Git status, command duration, and command state. No external prompt frameworks.
 
 - **Enhanced completions**  
