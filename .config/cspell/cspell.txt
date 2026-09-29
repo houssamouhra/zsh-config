@@ -59,6 +59,7 @@ burstable
 bursty
 cadvisor
 canva
+catrust
 certifi
 certmanager
 cfile
@@ -66,7 +67,7 @@ chargeback
 cheatsheets
 chsh
 cicd
-CIMD
+cimd
 cldy
 clickhouse
 cliffcolvin
@@ -105,7 +106,7 @@ cpureq
 cpuused
 crds
 creds
-CRRS
+crrs
 cspellcache
 csvfile
 curlimages
@@ -160,7 +161,7 @@ fastapi
 fastmcp
 feder
 filetree
-Filterless
+filterless
 filterwarnings
 finops
 finopsagent
@@ -210,7 +211,7 @@ healthz
 helmignore
 helmscan
 highmem
-HMAC
+hmac
 home
 hostnames
 http
@@ -316,6 +317,7 @@ mebibytes
 megistos
 memstats
 mgmt
+microdnf
 milli
 millicores
 mkdir
@@ -344,6 +346,7 @@ noninteractive
 nonprod
 nonroot
 nopasswd
+noqa
 noreply
 nosniff
 numpy
@@ -362,6 +365,7 @@ oyaml
 packagetype
 pagekit
 papt
+pathlib
 pearsonr
 persistentvolumeclaims
 persistentvolumes
@@ -396,6 +400,7 @@ pycache
 pycontribs
 pydantic
 pydocstyle
+pyinstaller
 pymupdf
 pypi
 pyproject
@@ -426,18 +431,19 @@ replicaset
 replicasets
 replicationcontrollers
 reserialized
-résumé
 rgba
 richprint
 rightsizer
 rollouts
 rollup
+rootfs
 rprint
 rprompt
 rrdatas
 rstrip
 ruamel
 runid
+résumé
 sapt
 scipy
 sdist
@@ -466,6 +472,7 @@ sparklines
 spearmanr
 specberus
 spikey
+stackrox
 stackwatch
 starlette
 statefulset
@@ -493,6 +500,7 @@ treeshake
 trieb
 trimpath
 trunc
+truststore
 tsbuildinfo
 tsdb
 turbonomic
@@ -504,8 +512,11 @@ tzdata
 ueox
 unalias
 unblended
+unconfigured
 unmarshals
+unparseable
 unskip
+unwired
 upserts
 urlencode
 urllib
@@ -535,6 +546,7 @@ wwtdb
 xattr
 xlarge
 yaml
+yannh
 yourkey
 zstandard
 zulip
