@@ -435,3 +435,7 @@ if [ "$commands[kubectx]" ]; then
   alias kn='kubens'
   alias kx='kubectx'
 fi
+
+pypi_lookup() {
+  curl -fsS "https://pypi.org/pypi/${1:?usage: pypiv <package>}/json" | jq -r .info.version
+}
