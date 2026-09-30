@@ -10,7 +10,7 @@ export ZSH_PATINA_PATH="$ZSH_PLUGIN_DIR/zsh-patina/target/release/zsh-patina"
 
 # Tools configuration directories
 export CARGO_BIN_HOME="$HOME/.cargo/bin"
-export PNPM_HOME="$XDG_DATA_HOME/pnpm/bin/bin/bin"
+export PNPM_HOME="$XDG_DATA_HOME/pnpm/bin/bin/bin/bin/bin"
 
 # ATAC configuration
 export ATAC_CONFIG_DIR="$XDG_CONFIG_HOME/atac"
@@ -27,16 +27,11 @@ export PAGER=less
 export MANPAGER=$PAGER
 export GPG_TTY=$(tty)
 
-# Cursor theme and size
-export XCURSOR_THEME=Bibata-Modern-Classic
-export XCURSOR_SIZE=22
-export GTK_CURSOR_THEME=$XCURSOR_THEME
-
 # path setup
 typeset -gU path
 path=(
 	$XDG_BIN_HOME
 	$CARGO_BIN_HOME
-	$PNPM_HOME
+	$PNPM_HOME/bin
 	$path
 )
