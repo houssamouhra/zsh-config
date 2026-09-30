@@ -107,3 +107,13 @@ zsh-bench needs the prompt to contain the hostname or the last path component. T
 - **fzf preview empty** — install `eza` and `bat`; confirm `$XDG_CONFIG_HOME/fzf/preview.sh` is executable.
 - **Git aliases missing** — they come from the overlay snippets under `plugins/oh-my-zsh-plugins/` and load after first prompt.
 - **Still on the old config** — this repo is not live until `~/.zshenv` and `~/.config/zsh` point at it. `echo $ZDOTDIR; ls -l ~/.zshenv ~/.config/zsh`.
+
+## Scheduled OneDrive backup
+
+`scripts/backup_to_onedrive.sh` tars this whole repo (including gitignored secrets like `.zsh-config-private.zsh`, excluding `.venv`, `.git`, and any `target/` build dirs) to `OneDrive-IBM/backups/zsh-config-backups/zsh-config-backup_<timestamp>.tgz`, keeping the 30 most recent archives.
+
+A launchd agent (`~/Library/LaunchAgents/com.jessegoodier.zsh-config-backup.plist`) runs it every 6 hours and on login. Logs: `~/Library/Logs/zsh-config-backup.log`.
+
+- Force a run now: `launchctl kickstart -k gui/$(id -u)/com.jessegoodier.zsh-config-backup`
+- Check it's loaded: `launchctl print gui/$(id -u)/com.jessegoodier.zsh-config-backup`
+- Disable it: `launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/com.jessegoodier.zsh-config-backup.plist`

@@ -231,3 +231,4 @@ __marimo__/
 .config/cursor.json
 .config/zsh/.zsh_sessions/
 .config/zsh/.zcompdump*
+claude.sh
