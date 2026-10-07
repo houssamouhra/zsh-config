@@ -1,0 +1,6 @@
+\.git
+\.gitignore
+^/README.*
+^/LICENSE.*
+/\.config/fzf
+/\.config/fzf-git
