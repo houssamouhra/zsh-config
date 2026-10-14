@@ -1,4 +1,3 @@
-alias bye='read -r '\''REPLY?Really power off? [Y/n] '\'' || exit; [[ -z $REPLY || $REPLY = [Yy]* ]] && sudo poweroff || echo "Shutdown cancelled."'
 alias ls='eza --icons --group-directories-first'
 alias ll='eza -l --icons --group-directories-first'
 alias la='eza -la --icons --group-directories-first'
