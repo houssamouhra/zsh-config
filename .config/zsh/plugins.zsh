@@ -96,16 +96,6 @@ update-plugin() {
                 if [[ $old == $new ]]; then
                     print -P "→ ${(r:29:)name} %F{8}○ already up to date%f"
 
-                elif [[ $name == zsh-patina ]]; then
-                    if ! (( $+commands[cargo] )); then
-                        print -P "→ ${(r:29:)name} %F{yellow}⚠ updated, but cargo missing%f"
-                    elif (cd "$dir" && cargo build --release --quiet); then
-                        print -P "→ ${(r:29:)name} %F{green}✓ updated & rebuilt%f"
-                    else
-                        print -P "→ ${(r:29:)name} %F{yellow}⚠ updated, rebuild failed%f"
-                    fi
-                else
-                    print -P "→ ${(r:29:)name} %F{green}✓ updated%f"
                 fi
             else
                 print -P "→ ${(r:29:)name} %F{red}✗ update failed%f"
@@ -140,42 +130,6 @@ plugin-path zsh-users zsh-autosuggestions          >/dev/null
 plugin-path zsh-users zsh-history-substring-search >/dev/null
 plugin-path houssamouhra colored-man-pages         >/dev/null
 
-# Ensure zsh-patina is cloned + built *now*
-ensure-zsh-patina() {
-    emulate -L zsh
-    local dir="$ZSH_PLUGIN_DIR/zsh-patina"
-    local name="zsh-patina"
-
-    if [[ ! -d $dir ]]; then
-        print -u2 -P "→ ${(r:29:)name} %F{cyan}installing...%f"
-        if ! git clone --depth=1 --quiet \
-            https://github.com/michel-kraemer/zsh-patina.git "$dir"; then
-            rm -rf "$dir"
-            print -u2 -P "→ ${(r:29:)name} %F{red}✗ clone failed%f"
-            return 1
-        fi
-        print -u2 -P "→ ${(r:29:)name} %F{green}✓ installed%f"
-    fi
-
-    if [[ ! -x $ZSH_PATINA_PATH ]]; then
-        if ! (( $+commands[cargo] )); then
-            print -u2 -P "→ ${(r:29:)name} %F{yellow}⚠ cargo is missing%f"
-            print -u2 -P "  Install Rust from https://rustup.rs and then run:"
-            print -u2 -P "  Then run: (cd $dir && cargo build --release)"
-            return 1
-        fi
-        print -u2 -P "→ ${(r:29:)name} %F{cyan}building...%f"
-        if ! (cd "$dir" && cargo build --release --quiet); then
-            print -u2 -P "→ ${(r:29:)name} %F{red}✗ build failed%f"
-            return 1
-        fi
-        print -u2 -P "→ ${(r:29:)name} %F{green}✓ built%f"
-    fi
-}
-
-# Run the ensure step immediately (so you see the messages)
-ensure-zsh-patina
-
 # Defer only the cheap activation + other plugins
 zsh-defer -c '
     source "$(plugin-path mattmc3 ez-compinit)"
@@ -186,12 +140,13 @@ zsh-defer -c '
     source "$(plugin-path houssamouhra colored-man-pages)"
 
     # Just activate
-    if [[ -x $ZSH_PATINA_PATH ]] && ! typeset -f _zsh_patina_activate >/dev/null 2>&1; then
+    if (( $+commands[zsh-patina] )) && ! typeset -f _zsh_patina_activate >/dev/null 2>&1; then
         _zsh_patina_activate() {
             unfunction _zsh_patina_activate
             add-zsh-hook -d precmd _zsh_patina_activate
-            eval "$("$ZSH_PATINA_PATH" activate)"
+            eval "$(zsh-patina activate)"
         }
+
         add-zsh-hook precmd _zsh_patina_activate
     fi
 '
