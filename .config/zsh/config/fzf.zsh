@@ -1,106 +1,97 @@
-# FZF default options & preview
+# Requires fzf >= 0.48 (`fzf --zsh`).
+# Must be sourced AFTER plugins.zsh: fzf's init is queued with zsh-defer, and
+# the queue runs in order, so fzf-tab is already loaded when fzf initializes.
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+# ── Options ───────────────────────────────────────────────────────────────────
 # Unified preview: directories -> tree, files -> bat
 FZF_PREVIEW="--preview '$XDG_CONFIG_HOME/fzf/preview.sh {}'"
 export FZF_DEFAULT_OPTS_FILE="$XDG_CONFIG_HOME/fzf/config"
 
-# Ctrl+T options: multi-select + open selected files in nvim
+# Ctrl+T: multi-select, Ctrl+O opens the selection in $EDITOR (default nvim)
 export FZF_CTRL_T_OPTS="$FZF_PREVIEW \
 --multi \
---bind 'ctrl-o:execute(nvim {+})+abort'"
+--bind 'ctrl-o:execute(${EDITOR:-nvim} {+})+abort'"
 
-# Alt+C options: directory preview
+# Alt+C: directory preview
 export FZF_ALT_C_OPTS="$FZF_PREVIEW"
 
-# Ctrl+R options: reverse history search with inline info
+# Ctrl+R: reverse history search with inline info
 export FZF_CTRL_R_OPTS="\
 --height ${FZF_TMUX_HEIGHT:-50%} \
 --reverse \
 --scheme=history \
 --exact \
---ansi \
 --inline-info"
 
-# FZF initialization
+# ── Initialization ────────────────────────────────────────────────────────────
+# Run a command deferred if zsh-defer exists, otherwise immediately.
+_fzf_defer() {
+	if (( $+functions[zsh-defer] )); then
+		zsh-defer "$@"
+	else
+		"$@"
+	fi
+}
+
+# Load fzf's key bindings and completion, then give Tab back to fzf-tab
+# (`fzf --zsh` rebinds Tab to its own completion, which would sit on top of it).
 _fzf_init() {
 	emulate -L zsh
-	(( $+commands[fzf] )) || return
-	local init
-	init="$(fzf --zsh)" || return
-	eval "$init" || return
-	unfunction _fzf_init
+	(( $+commands[fzf] )) || return 1
+
+	source <(fzf --zsh) || return 1
+
+	if (( $+widgets[fzf-tab-complete] )); then
+		local keymap
+		for keymap in emacs viins; do
+			bindkey -M $keymap '^I' fzf-tab-complete
+		done
+	fi
 }
+_fzf_defer _fzf_init
 
-# Lazy load Ctrl+R history search
-_fzf_history_lazy() {
-	_fzf_init
-	fzf-history-widget() {
-		local selected ret=0
-		emulate -L zsh
-		setopt pipefail no_aliases
+# fzf-git key bindings (Ctrl-G Ctrl-B, etc.); deferred so they exist right away
+_fzf_git_script="$XDG_CONFIG_HOME/fzf-git/fzf-git.sh"
+[[ -r $_fzf_git_script ]] && _fzf_defer source "$_fzf_git_script"
+unset _fzf_git_script
 
-		selected=$(
-			fc -lnr 1 |
-			awk '!seen[$0]++' |
-			FZF_DEFAULT_OPTS="${FZF_DEFAULT_OPTS:-} ${FZF_CTRL_R_OPTS}" \
-			fzf +m --query "$LBUFFER"
-		)
-
-		ret=$?
-		[[ -z "$selected" ]] && { zle redisplay; return $ret; }
-
-		LBUFFER="$selected"
-		zle reset-prompt
-	}
-
-	zle -N fzf-history-widget
-	zle fzf-history-widget
-}
-zle -N _fzf_history_lazy
-bindkey '^R' _fzf_history_lazy
-
-# Lazy load Ctrl+T file finder
-_fzf_file_widget_lazy() {
-	_fzf_init
-	zle fzf-file-widget
-}
-zle -N _fzf_file_widget_lazy
-bindkey '^T' _fzf_file_widget_lazy
-
-# Lazy load Alt+C directory finder
-_fzf_cd_widget_lazy() {
-	_fzf_init
-	zle fzf-cd-widget
-}
-zle -N _fzf_cd_widget_lazy
-bindkey '^[c' _fzf_cd_widget_lazy
-
-# Lazy git-fzf integration
-# Override git command to source fzf-git only when git is used
-git() {
-	unfunction git
-	local fzf_git="${XDG_CONFIG_HOME}/fzf-git/fzf-git.sh"
-	[[ -f "$fzf_git" ]] && source "$fzf_git" 2>/dev/null
-	command git "$@"
-}
-
-# FZF SSH quick connect
+# ── Helpers ───────────────────────────────────────────────────────────────────
+# fzf_ssh: pick a host from ~/.ssh/config and connect
+# (handles several aliases per Host line, skips wildcards, any letter case)
 fzf_ssh() {
 	emulate -L zsh
-	local host
-	[[ -r ~/.ssh/config ]] || return
-	host=$(awk '/^Host / && $2 != "*" {print $2}' ~/.ssh/config | fzf --preview 'dig {} +short; ping -c1 {} 2>/dev/null | head -1')
-	[[ -n $host ]] && ssh "$host"
+	local config="$HOME/.ssh/config" host
+
+	[[ -r $config ]] || {
+		print -u2 "fzf_ssh: cannot read $config"
+		return 1
+	}
+
+	host=$(
+		awk 'tolower($1) == "host" {
+			for (i = 2; i <= NF; i++) if ($i !~ /[*?!]/) print $i
+		}' "$config" |
+		sort -u |
+		fzf --prompt='ssh> ' \
+			--preview 'ssh -G {} | grep -iE "^(hostname|user|port|identityfile) "'
+	) || return
+
+	[[ -n $host ]] && ssh -- "$host"
 }
 
-# FZF process killer
+# fkill [signal]: pick processes and kill them (default signal: TERM)
 fkill() {
 	emulate -L zsh
-	local pid
-	if [[ $UID -ne 0 ]]; then
-		pid=$(ps -u "$UID" -o pid,comm --no-headers | fzf -m | awk '{print $1}')
+	local pids
+
+	if (( UID )); then
+		pids=$(ps -U "$UID" -o pid=,comm= | fzf -m --prompt='kill> ' | awk '{print $1}')
 	else
-		pid=$(ps -ef | awk 'NR>1 {print $2, $8}' | fzf -m | awk '{print $1}')
+		pids=$(ps -A -o pid=,comm= | fzf -m --prompt='kill> ' | awk '{print $1}')
 	fi
 
-	[[ -n $pid ]] && kill -"${1:-9}" ${(f)pid}
+	[[ -n $pids ]] || return 0
+	kill -"${1:-TERM}" ${(f)pids}
 }
