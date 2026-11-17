@@ -1,33 +1,40 @@
-# Clone a plugin on first use (if missing)
+# tiny plugin manager (clone on first use, load deferred)
+
+typeset -gi _PLUGIN_LABEL_WIDTH=29
+
+# plugin-path <owner> <repo>
+# Clones the repo on first use, then sets REPLY to the plugin's entry file.
+# Uses REPLY instead of printing, so callers don't need a $(...) subshell:
+#   plugin-path romkatv gitstatus && source $REPLY
 plugin-path() {
     emulate -L zsh
-    setopt localoptions nullglob
+    setopt nullglob
 
-    # Validate arguments
-    (($# >= 2)) || {
-        print -u2 -P "%F{red}usage: plugin-path <owner> <repo> %f"
+    REPLY=
+
+    (( $# >= 2 )) || {
+        print -u2 -P "%F{red}usage: plugin-path <owner> <repo>%f"
         return 1
     }
 
-    local owner=$1
-    local repo=$2
+    local owner=$1 repo=$2
     local dir="$ZSH_PLUGIN_DIR/$repo"
+    local label="${(r:$_PLUGIN_LABEL_WIDTH:)repo}"
 
-    # Clone the plugins
-    if [[ ! -d "$dir" ]]; then
+    # Clone on first use
+    if [[ ! -d $dir ]]; then
         mkdir -p "$ZSH_PLUGIN_DIR" || return 1
-        print -u2 -P "→ ${(r:29:)repo} %F{cyan}installing...%f"
+        print -u2 -P "→ $label %F{cyan}installing...%f"
 
-        if ! git clone --depth=1 --quiet \
+        # GIT_TERMINAL_PROMPT=0: a typo'd repo fails instead of asking for credentials
+        if ! GIT_TERMINAL_PROMPT=0 git clone --depth=1 --quiet \
             "https://github.com/$owner/$repo" "$dir"; then
             rm -rf "$dir"
-            print -u2 -P "→ ${(r:29:)repo} %F{red}✗ clone failed%f"
-            print -u2
+            print -u2 -P "→ $label %F{red}✗ clone failed%f"
             return 1
         fi
 
-        print -u2 -P "→ ${(r:29:)repo} %F{green}✓ installed%f"
-        print -u2
+        print -u2 -P "→ $label %F{green}✓ installed%f"
     fi
 
     # Prefer the conventional entry points
@@ -37,71 +44,72 @@ plugin-path() {
         "$dir"/*.plugin.zsh \
         "$dir/$repo.zsh"
     do
-        [[ -r $entry ]] && {
-            print -r -- "$entry"
+        if [[ -r $entry ]]; then
+            REPLY=$entry
             return 0
-        }
+        fi
     done
 
-    # Last resort: only if there is exactly one *.zsh in the root
+    # Last resort: exactly one *.zsh in the root
     local -a candidates=("$dir"/*.zsh)
-
     if (( $#candidates == 1 )) && [[ -r $candidates[1] ]]; then
-        print -r -- "$candidates[1]"
+        REPLY=$candidates[1]
         return 0
     fi
 
-    print -u2 -P "→ ${(r:29:)repo} %F{red}✗ missing plugin entry%f"
-    print -u2
+    print -u2 -P "→ $label %F{red}✗ missing plugin entry%f"
     return 1
 }
 
-update-plugin() {
+# update-plugins: update every cloned plugin in parallel
+update-plugins() {
     emulate -L zsh
-    setopt localoptions nullglob nomonitor
+    setopt nullglob nomonitor
 
-    local -a plugins=("$ZSH_PLUGIN_DIR"/*(/))
+    local -a plugins=("$ZSH_PLUGIN_DIR"/*(/N))
     (( $#plugins )) || {
         print -P "%F{yellow}No plugins found in $ZSH_PLUGIN_DIR%f"
         return 0
     }
 
-    local dir name
+    print -P "%F{cyan}Updating $#plugins plugins...%f"
+
+    local dir pid
     local -a pids=()
 
-    print -P "%F{cyan}Updating ${#plugins} plugins...%f"
-
     for dir in $plugins; do
-        [[ -d "$dir/.git" ]] || continue
-        name=${dir:t}
+        [[ -d $dir/.git ]] || continue
 
         (
+            local name=${dir:t}
+            local label="${(r:$_PLUGIN_LABEL_WIDTH:)name}"
             local old new
+            export GIT_TERMINAL_PROMPT=0
 
             old=$(git -C "$dir" rev-parse HEAD 2>/dev/null) || {
-                print -P "→ ${(r:29:)name} %F{red}✗ not a valid git repo%f"
+                print -P "→ $label %F{red}✗ not a valid git repo%f"
                 return
             }
 
-            if ! git -C "$dir" fetch --depth=1 --quiet origin 2>/dev/null; then
-                print -P "→ ${(r:29:)name} %F{red}✗ fetch failed%f"
+            git -C "$dir" fetch --depth=1 --quiet origin 2>/dev/null || {
+                print -P "→ $label %F{red}✗ fetch failed%f"
                 return
-            fi
+            }
 
-            if git -C "$dir" merge --ff-only --quiet FETCH_HEAD 2>/dev/null ||
-                git -C "$dir" reset --hard --quiet FETCH_HEAD 2>/dev/null; then
+            # Plugins are read-only clones, so a hard reset is fine
+            git -C "$dir" reset --hard --quiet FETCH_HEAD 2>/dev/null || {
+                print -P "→ $label %F{red}✗ update failed%f"
+                return
+            }
 
-                new=$(git -C "$dir" rev-parse HEAD)
+            new=$(git -C "$dir" rev-parse HEAD)
 
-                if [[ $old == $new ]]; then
-                    print -P "→ ${(r:29:)name} %F{8}○ already up to date%f"
-
-                fi
+            if [[ $old == $new ]]; then
+                print -P "→ $label %F{8}○ already up to date%f"
             else
-                print -P "→ ${(r:29:)name} %F{red}✗ update failed%f"
+                print -P "→ $label %F{green}✓ updated%f %F{8}${old[1,7]} → ${new[1,7]}%f"
             fi
         ) &
-
         pids+=($!)
     done
 
@@ -112,41 +120,43 @@ update-plugin() {
     print -P "%F{green}Done.%f"
 }
 
-# Critical plugins, loaded immediately
-source "$(plugin-path romkatv gitstatus)"
-source "$(plugin-path romkatv zsh-defer)"
+# Critical plugins: loaded immediately (prompt.zsh depends on both)
+plugin-path romkatv gitstatus && source $REPLY
+plugin-path romkatv zsh-defer && source $REPLY
 
-# Autosuggest performance settings
+# Autosuggestions settings
 typeset -g ZSH_AUTOSUGGEST_MANUAL_REBIND=1
-typeset -g ZSH_AUTOSUGGEST_BUFFER_MAX_SIZE=20
 typeset -g ZSH_AUTOSUGGEST_USE_ASYNC=1
 typeset -g ZSH_AUTOSUGGEST_STRATEGY=(history)
 
-# Install the rest (hide the path, keep the status messages)
-plugin-path mattmc3 ez-compinit                    >/dev/null
-plugin-path zsh-users zsh-completions              >/dev/null
-plugin-path aloxaf fzf-tab                         >/dev/null
-plugin-path zsh-users zsh-autosuggestions          >/dev/null
-plugin-path zsh-users zsh-history-substring-search >/dev/null
-plugin-path houssamouhra colored-man-pages         >/dev/null
+# Deferred plugins
+# Order matters:
+#   1. zsh-completions   adds to fpath, so it must come BEFORE compinit
+#   2. ez-compinit       runs compinit
+#   3. fzf-tab           must come after compinit
+#   4. the rest
 
-# Defer only the cheap activation + other plugins
-zsh-defer -c '
-    source "$(plugin-path mattmc3 ez-compinit)"
-    source "$(plugin-path zsh-users zsh-completions)"
-    source "$(plugin-path aloxaf fzf-tab)"
-    source "$(plugin-path zsh-users zsh-autosuggestions)"
-    source "$(plugin-path zsh-users zsh-history-substring-search)"
-    source "$(plugin-path houssamouhra colored-man-pages)"
+typeset -a _deferred_plugins=(
+    zsh-users/zsh-completions
+    mattmc3/ez-compinit
+    Aloxaf/fzf-tab
+    zsh-users/zsh-autosuggestions
+    zsh-users/zsh-history-substring-search
+    houssamouhra/colored-man-pages
+)
 
-    # Just activate
-    if (( $+commands[zsh-patina] )) && ! typeset -f _zsh_patina_activate >/dev/null 2>&1; then
-        _zsh_patina_activate() {
-            unfunction _zsh_patina_activate
-            add-zsh-hook -d precmd _zsh_patina_activate
-            eval "$(zsh-patina activate)"
-        }
+# Clone anything missing now (status messages show on first run) and queue
+# each plugin for deferred sourcing. zsh-defer keeps queue order.
+typeset _spec
+for _spec in $_deferred_plugins; do
+    plugin-path ${_spec%%/*} ${_spec#*/} && zsh-defer source $REPLY
+done
+unset _spec _deferred_plugins
 
-        add-zsh-hook precmd _zsh_patina_activate
-    fi
-'
+# Autosuggestions normally binds its widgets from a one-shot precmd hook, which
+# would only fire after the *first* command. Bind right away instead.
+zsh-defer -c '(( $+functions[_zsh_autosuggest_start] )) && _zsh_autosuggest_start'
+
+# zsh-patina: activate directly (no precmd hook needed)
+# If this misbehaves, go back to the one-shot precmd hook version.
+zsh-defer -c '(( $+commands[zsh-patina] )) && eval "$(zsh-patina activate)"'
