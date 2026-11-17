@@ -4,179 +4,199 @@
 #   3. Is the repo in a notable state?       → status icons (+!?✘=$⇡⇣)
 #   4. Did my last command fail / take long? → CMD_STATUS + CMD_DURATION
 #
-# Architecture: everything is driven by pure async gitstatus.
+# Architecture: everything is driven by async gitstatus.
 # On every precmd we fire a non-blocking gitstatus_query (-t 0). While the
-# query is in flight the plugin temporarily clears VCS_STATUS_* variables
-# (RESULT becomes "tout"). We deliberately ignore that transient state and
-# keep the last known good worktree (_LAST_WORKTREE / _REPO_NAME). Consequently
-# PATH_INFO is only recalculated when the directory actually changes or when
-# a real "ok-*" result arrives with a different worktree. The async callback
-# then updates GIT_INFO (and PATH_INFO only if needed) and issues a single
-# zle reset-prompt if anything visible changed. This eliminates the classic
-# "~/repo" ↔ "repo" flicker while keeping the entire prompt non-blocking.
+# query is in flight, VCS_STATUS_RESULT is "tout" and we deliberately ignore
+# it, keeping the last known worktree. PATH_INFO is only recalculated when the
+# directory changes or a real result (ok-* / norepo-*) changes the worktree.
+# The async callback updates GIT_INFO (and PATH_INFO if needed) and issues a
+# single `zle reset-prompt` if anything visible changed. This avoids the
+# classic "~/repo" ↔ "repo" flicker while keeping the prompt fully non-blocking.
 #
+# Requires (from plugins.zsh): gitstatus, zsh-defer
 #
-typeset -g PATH_INFO GIT_INFO CMD_STATUS CMD_DURATION
-typeset -g _LAST_PWD _LAST_WORKTREE _REPO_NAME
-typeset -g _GITSTATUS_READY=0
-typeset -g _PROMPT_START_TIME
+# Conventions: helper functions return their value in $REPLY instead of
+# printing, so callers avoid a $(...) subshell (a fork) on every prompt.
+# ──────────────────────────────────────────────────────────────────────────────
+
+autoload -Uz add-zsh-hook
 setopt PROMPT_SUBST
 
-# Start gitstatus daemon once the shell is interactive
-zsh-defer -c '
-gitstatus_start -s -1 -u -1 -c -1 -d -1 -e "MY_PROMPT"
-_GITSTATUS_READY=1
-# Fire the first query asynchronously (no blocking)
-gitstatus_query -t 0 -c _gitstatus_async_update "MY_PROMPT"
-'
+typeset -g  PATH_INFO GIT_INFO CMD_STATUS CMD_DURATION
+typeset -g  _LAST_PWD _LAST_WORKTREE _REPO_NAME
+typeset -g  _PROMPT_START_TIME
+typeset -gi _GITSTATUS_READY=0
 
-# Git segment (branch/tag + status icons)
-git_prompt() {
-	[[ "$VCS_STATUS_RESULT" == ok-* ]] || return
+# Show the duration of a command only if it took at least this many seconds
+typeset -gi PROMPT_DURATION_THRESHOLD=2
+
+# ── Git segment ───────────────────────────────────────────────────────────────
+# Sets REPLY to the branch/tag + status icons.
+_prompt_git() {
+	case $VCS_STATUS_RESULT in
+		ok-*)     ;;
+		norepo-*) REPLY=; return ;;
+		*)        REPLY=$GIT_INFO; return ;;  # in flight: keep what we have
+	esac
 
 	local -a segments
-	(( VCS_STATUS_NUM_STAGED ))          && segments+=("+")
-	(( VCS_STATUS_NUM_UNSTAGED ))        && segments+=("!")
-	(( VCS_STATUS_NUM_UNTRACKED ))       && segments+=("?")
-	(( VCS_STATUS_NUM_STAGED_DELETED + VCS_STATUS_NUM_UNSTAGED_DELETED )) && segments+=("✘")
-	(( VCS_STATUS_NUM_CONFLICTED ))      && segments+=("=")
-	(( VCS_STATUS_STASHES ))             && segments+=("$")
-	(( VCS_STATUS_COMMITS_AHEAD  ))      && segments+=("⇡${VCS_STATUS_COMMITS_AHEAD}")
-	(( VCS_STATUS_COMMITS_BEHIND  ))     && segments+=("⇣${VCS_STATUS_COMMITS_BEHIND}")
+	(( VCS_STATUS_NUM_STAGED ))     && segments+=('+')
+	(( VCS_STATUS_NUM_UNSTAGED ))   && segments+=('!')
+	(( VCS_STATUS_NUM_UNTRACKED ))  && segments+=('?')
+	(( VCS_STATUS_NUM_STAGED_DELETED + VCS_STATUS_NUM_UNSTAGED_DELETED )) && segments+=('✘')
+	(( VCS_STATUS_NUM_CONFLICTED )) && segments+=('=')
+	(( VCS_STATUS_STASHES ))        && segments+=('$')
+	(( VCS_STATUS_COMMITS_AHEAD ))  && segments+=("⇡${VCS_STATUS_COMMITS_AHEAD}")
+	(( VCS_STATUS_COMMITS_BEHIND )) && segments+=("⇣${VCS_STATUS_COMMITS_BEHIND}")
 
 	local ref
-	if [[ -n "$VCS_STATUS_LOCAL_BRANCH" ]]; then
-		ref="$VCS_STATUS_LOCAL_BRANCH"
-	elif [[ -n "$VCS_STATUS_TAG" ]]; then
+	if [[ -n $VCS_STATUS_LOCAL_BRANCH ]]; then
+		ref=$VCS_STATUS_LOCAL_BRANCH
+	elif [[ -n $VCS_STATUS_TAG ]]; then
 		ref="#$VCS_STATUS_TAG"
 	else
-		ref="HEAD ("${VCS_STATUS_COMMIT[1,7]}")"
+		ref="HEAD (${VCS_STATUS_COMMIT[1,7]})"
 	fi
 
-	print -rn -- "%F{green}󰘬 ${ref}%f"
-	(("$#segments")) && print -rn -- " %B%F{red}["${(j::)segments}"]%f%b"
+	# A literal % in a branch name must not be read as a prompt escape
+	REPLY="%F{green}󰘬 ${ref//\%/%%}%f"
+	(( $#segments )) && REPLY+=" %B%F{red}[${(j::)segments}]%f%b"
 }
 
-# Update PATH_INFO only when directory or worktree really changed
-_refresh_path_info() {
-	local new_worktree=
-	if [[ "$VCS_STATUS_RESULT" == ok-* ]]; then
-		new_worktree="${VCS_STATUS_WORKDIR:-}"
+# ── Path segment ──────────────────────────────────────────────────────────────
+# Sets REPLY to a truncated path: repo-relative inside git, otherwise the
+# last 1-2 directories.
+_prompt_path() {
+	local worktree=${_LAST_WORKTREE-} out relative
+	local -a parts
+
+	if [[ -n $worktree && ( $PWD == "$worktree" || $PWD == "$worktree"/* ) ]]; then
+		# Inside a known git worktree
+		if [[ $PWD == "$worktree" ]]; then
+			out=$_REPO_NAME
+		else
+			relative=${PWD#"$worktree"/}
+			if [[ $relative == */* ]]; then
+				out="…/${relative:h:t}/${relative:t}"
+			else
+				out="…/$relative"
+			fi
+		fi
+	elif [[ $PWD == "$HOME" ]]; then
+		out='~'
+	elif [[ $PWD == "$HOME"/* ]]; then
+		relative=${PWD#"$HOME"/}
+		parts=(${(s:/:)relative})
+		if (( $#parts <= 3 )); then
+			out="~/$relative"
+		else
+			out="…/${parts[-2]}/${parts[-1]}"
+		fi
 	else
-		# Keep previous worktree while query is in flight
-		new_worktree="${_LAST_WORKTREE-}"
+		parts=(${(s:/:)PWD})
+		if (( $#parts <= 2 )); then
+			out=$PWD
+		else
+			out="…/${parts[-2]}/${parts[-1]}"
+		fi
 	fi
 
-	if [[ "$PWD" != "${_LAST_PWD-}" || "$new_worktree" != "${_LAST_WORKTREE-}" ]]; then
-		_REPO_NAME="${new_worktree:t}"
-		_LAST_WORKTREE="$new_worktree"
-		PATH_INFO=$(path_prompt)
+	# Escape % so odd directory names can't inject prompt escapes
+	REPLY=${out//\%/%%}
+}
+
+# Recompute PATH_INFO only if the directory or worktree really changed.
+_prompt_refresh_path() {
+	local worktree
+	case $VCS_STATUS_RESULT in
+		ok-*)     worktree=$VCS_STATUS_WORKDIR ;;
+		norepo-*) worktree= ;;                    # really left the repo
+		*)        worktree=${_LAST_WORKTREE-} ;;  # in flight: keep previous
+	esac
+
+	if [[ $PWD != ${_LAST_PWD-} || $worktree != ${_LAST_WORKTREE-} ]]; then
+		_LAST_WORKTREE=$worktree
+		_REPO_NAME=${worktree:t}
+		_prompt_path
+		PATH_INFO=$REPLY
 		_LAST_PWD=$PWD
 	fi
 }
 
-# Truncated path: repo-relative when inside git, otherwise last 1–2 dirs
-path_prompt() {
-	local worktree="${_LAST_WORKTREE-}"
+# ── gitstatus ─────────────────────────────────────────────────────────────────
+# Async callback: update git info and redraw only if something changed.
+_prompt_gitstatus_cb() {
+	local old_git=$GIT_INFO old_path=$PATH_INFO
 
-	# Inside a known git worktree
-	if [[ -n "$worktree" && "$PWD" == "$worktree"* ]]; then
-		if [[ "$PWD" == "$worktree" ]]; then
-			print -rn -- "${_REPO_NAME}"
-			return
-		fi
+	_prompt_git
+	GIT_INFO=$REPLY
+	_prompt_refresh_path
 
-		local relative=${PWD#"$worktree"/}
-
-		if [[ "$relative" == */* ]]; then
-			print -rn -- "…/${relative:h:t}/${relative:t}"
-		else
-			print -rn -- "…/${relative}"
-		fi
-		return
-	fi
-
-	# Outside git
-	if [[ "$PWD" == "$HOME" ]]; then
-		print -rn -- "~"
-		return
-	fi
-
-	local relative parts
-
-	if [[ "$PWD" == "$HOME"/* ]]; then
-		relative="${PWD#"$HOME"/}"
-		parts=("${(@s:/:)relative}")
-
-		if (( "${#parts}" <= 3 )); then
-			print -rn -- "~/${relative}"
-		else
-			print -rn -- "…/${parts[-2]}/${parts[-1]}"
-		fi
-		return
-	fi
-
-	parts=("${(@s:/:)PWD}")
-
-	if (( ${#parts} <= 2 )); then
-		print -rn -- "${(%):-%~}"
-	else
-		print -rn -- "…/${parts[-2]}/${parts[-1]}"
-	fi
-}
-
-# Async callback – update git info and redraw only if something changed
-_gitstatus_async_update() {
-	local old_git="$GIT_INFO"
-	local old_path="$PATH_INFO"
-
-	GIT_INFO=$(git_prompt)
-	_refresh_path_info
-
-	if [[ "$GIT_INFO" != "$old_git" || "$PATH_INFO" != "$old_path" ]]; then
+	if [[ $GIT_INFO != $old_git || $PATH_INFO != $old_path ]]; then
 		zle && zle reset-prompt
 	fi
 }
 
-preexec() {
-	_PROMPT_START_TIME="$SECONDS"
+# Start the daemon once the shell is interactive, then fire the first query
+_prompt_gitstatus_init() {
+	(( $+functions[gitstatus_start] )) || return 1
+	gitstatus_start -s -1 -u -1 -c -1 -d -1 -e "MY_PROMPT"
+	_GITSTATUS_READY=1
+	gitstatus_query -t 0 -c _prompt_gitstatus_cb "MY_PROMPT"
 }
 
-precmd() {
-	local st=$?
-	CMD_STATUS=${${st:#0}:+%F{red}➜%f}
-	CMD_STATUS=${CMD_STATUS:-%F{magenta}➜%f}
+if (( $+functions[zsh-defer] )); then
+	zsh-defer _prompt_gitstatus_init
+else
+	_prompt_gitstatus_init
+fi
 
-	# Command duration (shown only if ≥ 2 s)
+# ── Hooks ─────────────────────────────────────────────────────────────────────
+_prompt_preexec() {
+	_PROMPT_START_TIME=$SECONDS
+}
+
+_prompt_precmd() {
+	local st=$?   # must stay the first statement: captures the last exit status
+
+	if (( st )); then
+		CMD_STATUS='%F{red}➜%f'
+	else
+		CMD_STATUS='%F{magenta}➜%f'
+	fi
+
+	# Command duration
 	CMD_DURATION=
-	if (( "${+_PROMPT_START_TIME}" )); then
-		local -i sec="$(( SECONDS - _PROMPT_START_TIME ))"
-		unset _PROMPT_START_TIME
+	if [[ -n $_PROMPT_START_TIME ]]; then
+		local -i sec=$(( SECONDS - _PROMPT_START_TIME ))
+		_PROMPT_START_TIME=
 
-		if (( sec >= 2 )); then
-			if (( sec >= 60 )); then
-				local -i m="$(( sec / 60 ))"
-				local -i s="$(( sec % 60 ))"
-				CMD_DURATION="%F{yellow}${m}m${s}s%f"
-			else
-				CMD_DURATION="%F{yellow}${sec}s%f"
-			fi
+		if (( sec >= 60 )); then
+			CMD_DURATION="%F{yellow}$(( sec / 60 ))m$(( sec % 60 ))s%f"
+		elif (( sec >= PROMPT_DURATION_THRESHOLD )); then
+			CMD_DURATION="%F{yellow}${sec}s%f"
 		fi
 	fi
 
-	# Fire async gitstatus query
+	# Fire the async gitstatus query
 	if (( _GITSTATUS_READY )); then
-		gitstatus_query -t 0 -c _gitstatus_async_update 'MY_PROMPT'
+		gitstatus_query -t 0 -c _prompt_gitstatus_cb "MY_PROMPT"
 	fi
 
 	# Refresh path (only does work on real changes)
-	_refresh_path_info
+	_prompt_refresh_path
 }
 
-# One-line prompt Option
-PROMPT='%B%F{blue}${PATH_INFO}%f%b ${GIT_INFO} ${CMD_STATUS} '
+# Registered at config time, so this runs before hooks added later by plugins,
+# which keeps $? intact for _prompt_precmd.
+add-zsh-hook preexec _prompt_preexec
+add-zsh-hook precmd  _prompt_precmd
 
-# Two-lines prompt Option
+# ── Prompt ────────────────────────────────────────────────────────────────────
+# One-line prompt
+PROMPT='%B%F{blue}${PATH_INFO}%f%b ${GIT_INFO:+${GIT_INFO} }${CMD_STATUS} '
+
+# Two-line prompt option
 # PROMPT=$'\n%B%F{blue}${PATH_INFO}%f%b ${GIT_INFO}\n${CMD_STATUS} '
 
 RPROMPT='${CMD_DURATION}'
